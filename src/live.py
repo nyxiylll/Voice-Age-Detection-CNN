@@ -1,15 +1,3 @@
-"""
-live.py — Real-time age group prediction from microphone input.
-
-Pipeline:
-  Mic audio  →  Mel Spectrogram  →  VIRIDIS colour image  →  Model  →  Age label
-
-Usage (from the src/ folder):
-    python live.py                    # record 5 seconds from mic, then predict
-    python live.py --duration 3       # record 3 seconds
-    python live.py --file path.wav    # predict from an existing audio file
-"""
-
 import argparse
 import os
 import sys
@@ -20,16 +8,14 @@ import torch
 from torchvision import transforms
 from PIL import Image
 
-# ── make sure imports work whether run from src/ or project root ──────────────
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _SRC_DIR)
 from model import Model
 
-# ── constants (must match training) ──────────────────────────────────────────
-SAMPLE_RATE  = 16000
-MAX_LENGTH   = 128          # time-axis frames
-N_MELS       = 128          # frequency bins
-MODEL_PATH   = os.path.join(_SRC_DIR, "..", "Model", "colour_model.pth")
+SAMPLE_RATE = 16000
+MAX_LENGTH  = 128
+N_MELS      = 128
+MODEL_PATH  = os.path.join(_SRC_DIR, "..", "Model", "colour_model.pth")
 
 AGE_LABELS = {
     0: "Teens    (13–19)",
@@ -42,13 +28,11 @@ AGE_LABELS = {
     7: "Eighties (80–89)",
 }
 
-# ── transforms (must match dataset.py) ───────────────────────────────────────
 _transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 
-# ── load model ────────────────────────────────────────────────────────────────
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def load_model():
@@ -59,36 +43,27 @@ def load_model():
     print(f"[✓] Model loaded from {os.path.abspath(MODEL_PATH)}  (device: {device})")
     return model
 
-# ── audio → spectrogram image tensor ─────────────────────────────────────────
 def audio_to_tensor(audio: np.ndarray, sr: int = SAMPLE_RATE) -> torch.Tensor:
-    """Convert a raw audio array to the model-ready image tensor."""
-
-    # 1. Mel Spectrogram
     mel = librosa.feature.melspectrogram(y=audio, sr=sr, n_mels=N_MELS)
     mel_db = librosa.power_to_db(mel, ref=np.max)
 
-    # 2. Pad / truncate to fixed width
     if mel_db.shape[1] < MAX_LENGTH:
         pad = MAX_LENGTH - mel_db.shape[1]
         mel_db = np.pad(mel_db, ((0, 0), (0, pad)), mode="constant")
     else:
         mel_db = mel_db[:, :MAX_LENGTH]
 
-    # 3. Normalise to 0-255
     mel_min, mel_max = mel_db.min(), mel_db.max()
     mel_norm = 255 * (mel_db - mel_min) / (mel_max - mel_min + 1e-6)
     mel_norm = mel_norm.astype(np.uint8)
 
-    # 4. Apply VIRIDIS colour map  (same as training)
-    mel_color_bgr = cv2.applyColorMap(mel_norm, cv2.COLORMAP_VIRIDIS)   # BGR
-    mel_color_rgb = cv2.cvtColor(mel_color_bgr, cv2.COLOR_BGR2RGB)      # RGB
+    mel_color_bgr = cv2.applyColorMap(mel_norm, cv2.COLORMAP_VIRIDIS)
+    mel_color_rgb = cv2.cvtColor(mel_color_bgr, cv2.COLOR_BGR2RGB)
 
-    # 5. PIL → transform → tensor  [1, 3, 128, 128]
     pil_img = Image.fromarray(mel_color_rgb)
-    tensor  = _transform(pil_img).unsqueeze(0)   # add batch dim
+    tensor  = _transform(pil_img).unsqueeze(0)
     return tensor
 
-# ── record from microphone ────────────────────────────────────────────────────
 def record_audio(duration: float = 5.0) -> np.ndarray:
     try:
         import sounddevice as sd
@@ -105,13 +80,12 @@ def record_audio(duration: float = 5.0) -> np.ndarray:
     print("   Recording done.\n")
     return audio.flatten()
 
-# ── predict ───────────────────────────────────────────────────────────────────
 def predict(model: Model, audio: np.ndarray) -> None:
     tensor = audio_to_tensor(audio).to(device)
 
     with torch.no_grad():
-        logits = model(tensor)                     # [1, 8]
-        probs  = torch.softmax(logits, dim=1)[0]   # [8]
+        logits = model(tensor)
+        probs  = torch.softmax(logits, dim=1)[0]
         pred   = torch.argmax(probs).item()
 
     print("=" * 40)
@@ -124,7 +98,6 @@ def predict(model: Model, audio: np.ndarray) -> None:
         mark = " ◄" if idx == pred else ""
         print(f"  {label}  {bar:<30} {prob*100:5.1f}%{mark}")
 
-# ── CLI entry point ───────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description="Live age-group predictor")
     parser.add_argument("--duration", type=float, default=5.0,

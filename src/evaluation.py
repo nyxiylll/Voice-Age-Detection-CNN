@@ -2,7 +2,6 @@ import torch
 from model import Model
 from dataset import config
 
-# Setup
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = Model().to(device)

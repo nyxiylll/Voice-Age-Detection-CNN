@@ -9,15 +9,15 @@ class Model(nn.Module):
         self.conv = nn.Sequential(
             nn.Conv2d(3, 16, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2),   # 128 → 64
+            nn.MaxPool2d(2),
 
             nn.Conv2d(16, 32, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2),   # 64 → 32
+            nn.MaxPool2d(2),
 
             nn.Conv2d(32, 64, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2)    # 32 → 16
+            nn.MaxPool2d(2)
         )
 
         self.fc = nn.Sequential(

@@ -4,12 +4,8 @@ from dataset import config
 from tqdm import tqdm
 from model import Model
 
-################################
-
-csv = r"C:\Users\ASUS\Desktop\Age Detection\Data\cv-valid-test.csv"#"../Data/cv-valid-train.csv"
+csv = r"C:\Users\ASUS\Desktop\Age Detection\Data\cv-valid-test.csv"
 images_path = "../Data/Image"
-
-################################
 
 def prepare_data():
     filenames, labels = load_csv(csv, 5000)
@@ -42,16 +38,13 @@ def run():
             images = images.to(device)
             labels = labels.to(device)
 
-            # forward
             outputs = model(images)
             loss = criterion(outputs, labels)
 
-            # backward
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            # FIX: proper loss accumulation
             total_loss += loss.item() * images.size(0)
 
             _, preds = torch.max(outputs, 1)
@@ -70,8 +63,6 @@ def run():
             torch.save(model.state_dict(), "../Model/colour_model.pth")
 
     print("Training complete!!")
-
-################################
 
 if __name__ == "__main__":
     #prepare_data()
